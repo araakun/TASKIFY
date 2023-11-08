@@ -1,0 +1,277 @@
+# Custom Hash Table implementation
+class HashTable:
+    def __init__(self, size):
+        self.size = size
+        self.table = [None] * size
+
+    def hash(self, key):
+        return hash(key) % self.size
+
+    def insert(self, key, value):
+        index = self.hash(key)
+        if self.table[index] is None:
+            self.table[index] = []
+        self.table[index].append((key, value))
+
+    def get(self, key):
+        index = self.hash(key)
+        if self.table[index] is not None:
+            for k, v in self.table[index]:
+                if k == key:
+                    return v
+        return None
+
+    def remove(self, key):
+        index = self.hash(key)
+        if self.table[index] is not None:
+            for i, (k, v) in enumerate(self.table[index]):
+                if k == key:
+                    del self.table[index][i]
+                    return
+
+    def get_all(self):
+        all_tasks = []
+        for bucket in self.table:
+            if bucket is not None:
+                for key, value in bucket:
+                    all_tasks.append((key, value))
+        return all_tasks
+
+# Custom Task status
+TASK_STATUS = {
+    1: "Ongoing",
+    2: "Completed",
+    3: "Missed"
+}
+
+
+
+# Dictionary to store user credentials (username and password)
+user_data = {}
+
+# Create a hash table to store tasks for each user
+task_tables = {}
+
+# Dictionary to store deleted tasks (for recovery)
+trash = {}
+
+# Function to validate user credentials
+def login(username, password):
+    return user_data.get(username) == password
+
+# Function to register a new user
+def register(username, password):
+    if username not in user_data:
+        user_data[username] = password
+        # Initialize a hash table for the user's tasks
+        task_tables[username] = HashTable(100)  # You can adjust the size as needed
+        return True
+    return False
+
+# Function to add a task
+def add_task(username, title, details, due_date, time, priority):
+    task_table = task_tables.get(username)
+    if task_table:
+        task = {
+            "details": details,
+            "due_date": due_date,
+            "time": time,
+            "priority": priority,
+            "status": 1,  # Set the initial status to "Ongoing"
+        }
+        task_table.insert(title, task)
+        print("Task added successfully!")
+
+        # Automatically display all tasks after adding a task
+        display_all_tasks(username)
+
+# Function to remove a task
+def remove_task(username, title):
+    task_table = task_tables.get(username)
+    if task_table:
+        task = task_table.get(title)
+        if task:
+            # Move the deleted task to the "Trash" for potential recovery
+            trash.setdefault(username, {})[title] = task
+            task_table.remove(title)
+            print("Task removed and moved to the 'Trash' successfully!")
+
+        # Automatically display all tasks after removing a task
+        #display_all_tasks(username)
+
+    else:
+        print("Task not found.")
+
+# Function to restore a task from the "Trash"
+def restore_task(username, title):
+    trash_table = trash.get(username)
+    if trash_table and title in trash_table:
+        task = trash_table[title]
+        task_table = task_tables.get(username)
+        if task_table:
+            task_table.insert(title, task)
+            del trash_table[title]
+            print("Task " + title + " from 'Trash' restored successfully!")
+
+        # Automatically display all tasks after restoring a task
+        #display_all_tasks(username)
+
+    else:
+        print("Task not found in 'Trash' or invalid choice.")
+
+# Function to update a task status
+def update_task_status(username, title, status):
+    task_table = task_tables.get(username)
+    if task_table:
+        task = task_table.get(title)
+        if task:
+            task["status"] = status
+            print("Task status updated successfully!")
+
+        # Automatically display all tasks after updating a task
+        display_all_tasks(username)
+
+    else:
+        print("Task not found.")
+
+# Function to retrieve a task
+def retrieve_task(username, title):
+    task_table = task_tables.get(username)
+    if task_table:
+        task = task_table.get(title)
+        if task:
+            print("Task Details:")
+            print("Title:", title)
+            print("Details:", task["details"])
+            print("Due Date:", task["due_date"])
+            print("Time:", task["time"])
+            print("Priority:", task["priority"])
+            print("Status:", TASK_STATUS.get(task["status"]))
+        else:
+            print("Task not found.")
+
+# Function to display all tasks
+def display_all_tasks(username):
+    task_table = task_tables.get(username)
+    if task_table:
+        all_tasks = task_table.get_all()
+        if all_tasks:
+            print()
+            # Sort tasks by priority before displaying
+            custom_priority_order = {"High": 1, "Medium": 2, "Low": 3}
+            all_tasks.sort(key=lambda x: (custom_priority_order.get(x[1]["priority"], 0), x[0]))
+            for title, task in all_tasks:
+                print("Title:", title)
+                print("Details:", task["details"])
+                print("Due Date:", task["due_date"])
+                print("Time:", task["time"])
+                print("Priority:", task["priority"])
+                print("Status:", TASK_STATUS.get(task["status"]))
+                print("-----")
+        else:
+            print("No tasks found.")
+    else:
+        print("User's task table not found. Cannot display tasks.")
+
+# Function to display "Trash"
+def display_trash(username):
+    trash_table = trash.get(username)
+    if trash_table:
+        if trash_table: 
+            print("Trash:")
+            for title, task in trash_table.items():
+                print("Title:", title)
+                print("Details:", task["details"])
+                print("Due Date:", task["due_date"])
+                print("Time:", task["time"])
+                print("Priority:", task["priority"])
+                print("Status:", TASK_STATUS.get(task["status"]))
+                print("-----")
+        else:
+            print("No tasks in 'Trash'.")
+    #else:
+        #print("User's 'Trash' not found. Cannot display 'Trash'.")
+
+# Main program
+while True:
+    print("Welcome to the Task Management System")
+    print("1. Log in")
+    print("2. Register")
+    print("3. Exit")
+    choice = input("Enter your choice (1/2/3): ")
+
+    if choice == "1":
+        username = input("Enter your username: ")
+        password = input("Enter your password: ")
+        if login(username, password):
+            print("Login successful!")
+            break
+        else:
+            print("Invalid username or password. Please try again.")
+
+    elif choice == "2":
+        new_username = input("Enter a new username: ")
+        new_password = input("Enter a new password: ")
+        if register(new_username, new_password):
+            print("Registration successful! You can now log in.")
+        else:
+            print("Username already exists. Please choose another username.")
+
+    elif choice == "3":
+        print("Exiting the Task Management System.")
+        break
+
+    else:
+        print("Invalid choice. Please try again.")
+
+# User is logged in
+while True:
+    print("\nTask Management Menu:")
+    print("1. Add Task")
+    print("2. Remove Task")
+    print("3. Restore Task")
+    print("4. Update Task Status")
+    print("5. Retrieve Task")
+    print("6. Display All Tasks")
+    print("7. Display Trash")
+    print("8. Exit")
+
+    choice = input("Enter your choice (1/2/3/4/5/6/7/8): ")
+
+    if choice == "1":
+        title = input("Enter task title: ")
+        details = input("Enter task details: ")
+        due_date = input("Enter due date: ")
+        time = input("Enter time: ")
+        priority = input("Enter priority (Low, Medium, High):")
+        add_task(username, title, details, due_date, time, priority)
+
+    elif choice == "2":
+        title = input("Enter task title to remove: ")
+        remove_task(username, title)
+
+    elif choice == "3":
+        title = input("Enter task title to restore from 'Trash': ")
+        restore_task(username, title)
+
+    elif choice == "4":
+        title = input("Enter task title to update status (1-Ongoing, 2-Completed, 3-Missed): ")
+        status = int(input("Status: "))
+        update_task_status(username, title, status)
+
+    elif choice == "5":
+        title = input("Enter task title to retrieve: ")
+        retrieve_task(username, title)
+
+    elif choice == "6":
+        display_all_tasks(username)
+
+    elif choice == "7":
+        display_trash(username)
+
+    elif choice == "8":
+        print("Exiting the Task Management System.")
+        break
+
+    else:
+        print("Invalid choice. Please try again.")
